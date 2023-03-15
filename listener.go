@@ -63,7 +63,7 @@ func main() {
 	// If config file isn't present, log but don't fail, the proxy can still
 	// provide some functionality.
 	if err != nil {
-		log.Println("unable to read configuration file: %v", err)
+		fmt.Printf("unable to read configuration file: %v", err)
 	}
 	fmt.Println("started reverse proxy...")
 
