@@ -7,8 +7,9 @@ import (
 )
 
 func TestRequestAsLoggableString(t *testing.T) {
+	// TODO: this can be much more exhaustive
 	request := http.Request{
-		Method:           "GET",
+		Method: "GET",
 	}
 	expectedOutputRegex := "Method: GET"
 	validLoggableString := regexp.MustCompile(expectedOutputRegex)
