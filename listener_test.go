@@ -77,3 +77,39 @@ func TestReverseProxyBlockingByHeader(t *testing.T) {
 	}
 
 }
+
+func TestReverseProxyBlockingByParam(t *testing.T) {
+	backendServer := httptest.NewServer(http.DefaultServeMux)
+	defer backendServer.Close()
+	backendURL, err := url.Parse(backendServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	paramToBlock := "password"
+	config := Configuration{
+		Server: backendURL.String(),
+		Rules: Deny{
+			// Use a URL param for blocking
+			Headers:   []string{},
+			URLParams: []string{paramToBlock},
+		},
+	}
+	reverseProxy, err := NewProxy(&config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	testServer := httptest.NewServer(reverseProxy)
+	defer testServer.Close()
+
+	response, err := http.Get(testServer.URL + "?" + paramToBlock + "=asdf")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.StatusCode != 403 {
+		t.Fatalf("Expecting a 403 forbidden response, got %v", response)
+	}
+
+}
