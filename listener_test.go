@@ -78,6 +78,8 @@ func TestReverseProxyBlockingByHeader(t *testing.T) {
 
 }
 
+// TODO: remove duplication across 2 tests?
+
 func TestReverseProxyBlockingByParam(t *testing.T) {
 	backendServer := httptest.NewServer(http.DefaultServeMux)
 	defer backendServer.Close()
