@@ -30,7 +30,7 @@ func main() {
 	}
 	body, err := os.ReadFile(configFileName)
 	if err != nil {
-		log.Fatal("Unable to load configuration file, %v. Please specify as an argument to the program.", err)
+		log.Fatalf("Unable to load configuration file, %v. Please specify as an argument to the program.", err)
 	}
 	reverseProxyConfig := parseConfigFile(body)
 	fmt.Println("started reverse proxy...")

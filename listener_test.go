@@ -1,7 +1,9 @@
 package main
 
 import (
+	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"regexp"
 	"testing"
@@ -38,4 +40,40 @@ func TestRequestAsLoggableString(t *testing.T) {
 	if !validLoggableString.MatchString(logString) {
 		t.Fatalf(`Output of RequestAsLoggableString, %s, didn't match %s`, logString, expectedOutputRegex)
 	}
+}
+
+func TestReverseProxyBlockingByHeader(t *testing.T) {
+	backendServer := httptest.NewServer(http.DefaultServeMux)
+	defer backendServer.Close()
+	backendURL, err := url.Parse(backendServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := Configuration{
+		Server: backendURL.String(),
+		Rules: Deny{
+			// Use a header that should result in request being blocked, since http.get includes
+			// User-Agent by default.
+			Headers:   []string{"User-Agent"},
+			URLParams: []string{},
+		},
+	}
+	reverseProxy, err := NewProxy(&config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	testServer := httptest.NewServer(reverseProxy)
+	defer testServer.Close()
+
+	response, err := http.Get(testServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.StatusCode != 403 {
+		t.Fatalf("Expecting a 403 forbidden response, got %v", response)
+	}
+
 }
