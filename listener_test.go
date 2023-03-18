@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -114,4 +115,40 @@ func TestReverseProxyBlockingByParam(t *testing.T) {
 		t.Fatalf("Expecting a 403 forbidden response, got %v", response)
 	}
 
+}
+
+func TestReverseProxyPassthroughRequest(t *testing.T) {
+	backendServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "this call was relayed by the reverse proxy")
+	}))
+	defer backendServer.Close()
+	backendURL, err := url.Parse(backendServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := Configuration{
+		Server: backendURL.String(),
+		Rules: Deny{
+			// Use a URL param for blocking
+			Headers:   []string{},
+			URLParams: []string{},
+		},
+	}
+	reverseProxy, err := NewProxy(&config)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	testServer := httptest.NewServer(reverseProxy)
+	defer testServer.Close()
+
+	response, err := http.Get(testServer.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if response.StatusCode != 200 {
+		t.Fatalf("Expecting a 200 OK response, got %v", response)
+	}
 }
