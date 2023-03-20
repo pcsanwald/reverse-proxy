@@ -74,6 +74,54 @@ func TestLooksLikePhone(t *testing.T) {
 	}
 }
 
+func TestShouldBlockRequestWithPOST(t *testing.T) {
+	// We'll configure our proxy to block User-Agent, and then
+	// set User-Agent in our request, to ensure that we are only
+	// blocking GET requests, not POST
+	postMethod := "POST"
+	request := http.Request{
+		Method: postMethod,
+		Header: make(http.Header, 0),
+	}
+	request.Header.Set("User-Agent", "whatever")
+	config := Configuration{
+		Server: "not required for test",
+		Rules: Deny{
+			// Use a header that should result in request being blocked, since http.get includes
+			// User-Agent by default.
+			Headers:   []string{"User-Agent"},
+			URLParams: []string{},
+		},
+	}
+	if shouldBlockRequest(&request, &config) != false {
+		t.Fatalf("We should not block a request with method %v", postMethod)
+	}
+}
+
+func TestShouldBlockRequestWithGET(t *testing.T) {
+	// We'll configure our proxy to block User-Agent, and then
+	// set User-Agent in our request, to ensure that we are only
+	// blocking GET requests, not POST
+	getMethod := "GET"
+	request := http.Request{
+		Method: getMethod,
+		Header: make(http.Header, 0),
+	}
+	request.Header.Set("User-Agent", "whatever")
+	config := Configuration{
+		Server: "not required for test",
+		Rules: Deny{
+			// Use a header that should result in request being blocked, since http.get includes
+			// User-Agent by default.
+			Headers:   []string{"User-Agent"},
+			URLParams: []string{},
+		},
+	}
+	if shouldBlockRequest(&request, &config) != true {
+		t.Fatalf("We should not block a request with method %v", getMethod)
+	}
+}
+
 func TestReverseProxyBlockingByHeader(t *testing.T) {
 	backendServer := httptest.NewServer(http.DefaultServeMux)
 	defer backendServer.Close()

@@ -16,8 +16,9 @@ import (
 	"unicode/utf8"
 )
 
-// Define a struct to handle our configuration file format
-
+// Configuration is a struct to handle our configuration file format
+// server is the backend server our proxy sits in front of
+// Rules allow us to block request based on query param or header.
 type Configuration struct {
 	Server string `json:"server"`
 	Rules  Deny   `json:"deny"`
@@ -58,19 +59,22 @@ func parseConfigFile(configBytes []byte) *Configuration {
 
 // Implement RoundTrip function so that we can log the response to the request
 // from our reverse proxy, as well as potentially block requests
-
-type loggingTransport struct {
+type customProxyTransport struct {
 	config *Configuration
 }
 
+// Based on request and configuration, returns a bool that indicates the request should be
+// blocked or not.
 func shouldBlockRequest(request *http.Request, config *Configuration) bool {
+	if request.Method != "GET" {
+		return false
+	}
 	for headerIndex := 0; headerIndex < len(config.Rules.Headers); headerIndex++ {
 		headerToBlock := config.Rules.Headers[headerIndex]
 		if request.Header.Get(headerToBlock) != "" {
 			return true
 		}
 	}
-
 	for queryParamIndex := 0; queryParamIndex < len(config.Rules.URLParams); queryParamIndex++ {
 		queryParamToBlock := config.Rules.URLParams[queryParamIndex]
 		if request.URL.Query().Has(queryParamToBlock) {
@@ -80,11 +84,13 @@ func shouldBlockRequest(request *http.Request, config *Configuration) bool {
 	return false
 }
 
+// Detect if the value of a parameter looks like an email address.
 func looksLikeEmail(parameterValue string) bool {
 	_, err := mail.ParseAddress(parameterValue)
 	return err == nil
 }
 
+// Detect if the value of a parameter looks like a phone number.
 func looksLikePhone(parameterValue string) bool {
 	potentialPhoneNumber, err := phonenumbers.Parse(parameterValue, "US")
 	if err != nil {
@@ -93,9 +99,14 @@ func looksLikePhone(parameterValue string) bool {
 	return phonenumbers.IsValidNumber(potentialPhoneNumber)
 }
 
+// Mask the value of a string: we assume here that length should be maintained
 func maskValue(value string) string {
 	return strings.Repeat("X", utf8.RuneCountInString(value))
 }
+
+// Determine if any query parameters should be masked. This method encapsulates our masking
+// logic, including what types of information we are masking. An improvement could be to
+// make the masking config based.
 func maskQueryParameters(requestParams url.Values) url.Values {
 	maskedValues := url.Values{}
 	for key, values := range requestParams {
@@ -110,7 +121,7 @@ func maskQueryParameters(requestParams url.Values) url.Values {
 	return maskedValues
 }
 
-func (t *loggingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	var response *http.Response
 	var err error
 	if shouldBlockRequest(request, t.config) {
@@ -139,35 +150,31 @@ func (t *loggingTransport) RoundTrip(request *http.Request) (*http.Response, err
 }
 
 // Creates a reverse proxy mapped to a targetHost
-
 func NewProxy(config *Configuration) (*httputil.ReverseProxy, error) {
 	url, err := url.Parse(config.Server)
 	if err != nil {
 		return nil, err
 	}
 	proxy := httputil.NewSingleHostReverseProxy(url)
-	proxy.Transport = &loggingTransport{config: config}
+	proxy.Transport = &customProxyTransport{config: config}
 	return proxy, nil
 }
 
-// Creates a request as formatted string, this function is meant to separate formatting
+// RequestAsLoggableString creates a request as formatted string, this function is meant to separate formatting
 // concerns separate from logging i/o
-
 func RequestAsLoggableString(request *http.Request) string {
 	logLine, _ := httputil.DumpRequest(request, true)
 	return string(logLine)
 }
 
-// Creates a response as a formatted string, this function is meant to separate formatting
+// ResponseAsLoggableString creates a response as a formatted string, this function is meant to separate formatting
 // concerns separate from logging i/o
-
 func ResponseAsLoggableString(response *http.Response) string {
 	logLine, _ := httputil.DumpResponse(response, true)
 	return string(logLine)
 }
 
-// Use a custom handler so that we can log the request submitted to our reverse proxy
-
+// ProxyRequestHandler is a custom handler so that we can log the request submitted to our reverse proxy
 func ProxyRequestHandler(proxy *httputil.ReverseProxy) func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		// 3. The proxy should log all incoming requests, including headers and body, and response

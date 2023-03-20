@@ -31,7 +31,8 @@ to the proxy, to see a request being proxied and then served.
 * installation instructions assume a sophisticated user: the install process could be simplified quite a lot by providing an image, for example.
 * Request blocking is done by checking for existence of Header or Query String parameter, ignoring the value.
 * To keep the scope reasonable, I choose to define "sensitive information" as email or phone, and used a [3rd party validation library](https://github.com/nyaruka/phonenumbers) for phone numbers. To detect sensitive information, I only considered the value of the parameter, but detection could be improved by considering the parameter name as well.
-* testing a broader range of inputs, using matrix style testing, would be a nice improvement.
 * separate log files, and logging configuration, is another area for improvement. 
 * I've tried to keep logging in the proxy relatively close to the spec, but I've added logging where I feel it makes the functionality clearer
 * I'm intentionally logging sensitive info at the proxy level, prior to masking, but this can be easily removed.
+* I'd like to use table driven tests to cover more cases.
+* currently the code is in one file, it is right at the point where I would split it into different files if I were going to add more functionality.
