@@ -21,10 +21,12 @@ First, we'll get a copy of the project and ensure the tests pass.
 Next, we'll startup a backend HTTP server, start up our reverse proxy, and pass a `curl` command
 to the proxy, to see a request being proxied and then served.
 
-1. start `nginx` on a given port, we'll use 8080 for this example.
+1. start `nginx` on a given port, we'll use 8080 for this example. You can `tail -f /usr/local/var/log/nginx/access.log` if you like.
 2. edit `config.json` to point to the server and port nginx is running on, localhost:8080 is default.
 3. start reverse proxy, listening on port 9090: `go run listener.go`. Logs will appear in this window.
 4. in another window, `curl -XGET localhost:9090`
+5. To see how the `password` param causes blocking, use `curl -i -XGET "http://localhost:9090/?password=asdf"`. 
+6. To observe PII masking, use `curl -i -XGET "http://localhost:9090/?email=someone@somewhere.com"`. Observe the masked data in the nginx logs.
 
 ### Assumptions, notes and areas for improvement
 
