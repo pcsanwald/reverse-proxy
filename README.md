@@ -24,7 +24,7 @@ to the proxy, to see a request being proxied and then served.
 
 1. start `nginx` on a given port, we'll use 8080 for this example.
 2. edit `config.json` to point to the server and port nginx is running on, localhost:8080 is default.
-3. start reverse proxy, listening on port 9090: `go run`. Logs will appear in this window.
+3. start reverse proxy, listening on port 9090: `go run listener.go`. Logs will appear in this window.
 4. in another window, `curl -XGET localhost:9090`
 
 

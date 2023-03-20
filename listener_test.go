@@ -43,6 +43,37 @@ func TestRequestAsLoggableString(t *testing.T) {
 	}
 }
 
+func TestMaskingString(t *testing.T) {
+	inputString := "paul"
+	expectedResult := "XXXX"
+	actualResult := maskValue(inputString)
+	if actualResult != expectedResult {
+		t.Fatalf("for input string %v, expected %v, got %v", inputString, expectedResult, actualResult)
+	}
+}
+
+func TestLooksLikeEmail(t *testing.T) {
+	maybeEmail := "paul@gmail.com"
+	if !looksLikeEmail(maybeEmail) {
+		t.Fatalf("input string '%v' looks like an email", maybeEmail)
+	}
+	maybeEmail = "paul"
+	if looksLikeEmail(maybeEmail) {
+		t.Fatalf("input string '%v' should not look like an email", maybeEmail)
+	}
+}
+
+func TestLooksLikePhone(t *testing.T) {
+	maybePhone := "+33 7 69 24 58 46"
+	if !looksLikePhone(maybePhone) {
+		t.Fatalf("input string '%v' looks like a phone number", maybePhone)
+	}
+	maybePhone = "8675"
+	if looksLikePhone(maybePhone) {
+		t.Fatalf("input string '%v' should not look like a phone number", maybePhone)
+	}
+}
+
 func TestReverseProxyBlockingByHeader(t *testing.T) {
 	backendServer := httptest.NewServer(http.DefaultServeMux)
 	defer backendServer.Close()

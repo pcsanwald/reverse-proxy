@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/nyaruka/phonenumbers"
 	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"net/mail"
 	"net/url"
 	"os"
+	"strings"
+	"unicode/utf8"
 )
 
 // Define a struct to handle our configuration file format
@@ -49,7 +53,6 @@ func parseConfigFile(configBytes []byte) *Configuration {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%+v", reverseProxyConfig)
 	return &reverseProxyConfig
 }
 
@@ -76,6 +79,37 @@ func shouldBlockRequest(request *http.Request, config *Configuration) bool {
 	}
 	return false
 }
+
+func looksLikeEmail(parameterValue string) bool {
+	_, err := mail.ParseAddress(parameterValue)
+	return err == nil
+}
+
+func looksLikePhone(parameterValue string) bool {
+	potentialPhoneNumber, err := phonenumbers.Parse(parameterValue, "US")
+	if err != nil {
+		return false
+	}
+	return phonenumbers.IsValidNumber(potentialPhoneNumber)
+}
+
+func maskValue(value string) string {
+	return strings.Repeat("X", utf8.RuneCountInString(value))
+}
+func maskQueryParameters(requestParams url.Values) url.Values {
+	maskedValues := url.Values{}
+	for key, values := range requestParams {
+		for _, value := range values {
+			if looksLikeEmail(value) || looksLikePhone(value) {
+				maskedValues.Add(key, maskValue(value))
+			} else {
+				maskedValues.Add(key, value)
+			}
+		}
+	}
+	return maskedValues
+}
+
 func (t *loggingTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	var response *http.Response
 	var err error
@@ -92,16 +126,15 @@ func (t *loggingTransport) RoundTrip(request *http.Request) (*http.Response, err
 			Header:        make(http.Header, 0),
 		}
 	} else {
+		maskedValues := maskQueryParameters(request.URL.Query())
+		request.URL.RawQuery = maskedValues.Encode()
+		log.Printf("Query String after masking values: %v", request.URL.RawQuery)
 		response, err = http.DefaultTransport.RoundTrip(request)
 	}
 
 	// 3. The proxy should log all incoming requests, including headers and body, and response
 	// headers and body.
-	body, err := httputil.DumpResponse(response, response.Body == nil)
-	log.Printf("Response: %v", string(body))
-	if err != nil {
-		return nil, err
-	}
+	log.Println(ResponseAsLoggableString(response))
 	return response, err
 }
 
@@ -117,11 +150,19 @@ func NewProxy(config *Configuration) (*httputil.ReverseProxy, error) {
 	return proxy, nil
 }
 
-// Creates a formatted string, this function is meant to separate formatting
+// Creates a request as formatted string, this function is meant to separate formatting
 // concerns separate from logging i/o
 
 func RequestAsLoggableString(request *http.Request) string {
 	logLine, _ := httputil.DumpRequest(request, true)
+	return string(logLine)
+}
+
+// Creates a response as a formatted string, this function is meant to separate formatting
+// concerns separate from logging i/o
+
+func ResponseAsLoggableString(response *http.Response) string {
+	logLine, _ := httputil.DumpResponse(response, true)
 	return string(logLine)
 }
 
@@ -131,6 +172,8 @@ func ProxyRequestHandler(proxy *httputil.ReverseProxy) func(http.ResponseWriter,
 	return func(writer http.ResponseWriter, request *http.Request) {
 		// 3. The proxy should log all incoming requests, including headers and body, and response
 		// headers and body.
+		// NOTE: this logging happens prior to masking PII: I want to include logging here because it's
+		// part of the requirements, but in practice, we would probably not want to log PII prior to masking.
 		log.Println(RequestAsLoggableString(request))
 		proxy.ServeHTTP(writer, request)
 
