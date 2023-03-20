@@ -38,3 +38,4 @@ to the proxy, to see a request being proxied and then served.
 * I'm intentionally logging sensitive info at the proxy level, prior to masking, but this can be easily removed.
 * I'd like to use table driven tests to cover more cases.
 * currently the code is in one file, it is right at the point where I would split it into different files if I were going to add more functionality.
+* the configuration system could be made more flexible by using something like [viper](https://github.com/spf13/viper).
