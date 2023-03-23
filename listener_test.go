@@ -10,11 +10,13 @@ import (
 	"testing"
 )
 
+const userAgentHeaderName = "User-Agent"
+
 func TestRequestAsLoggableString(t *testing.T) {
 	// TODO: this can be much more exhaustive
 	testURL, _ := url.Parse("/foo")
 	request := http.Request{
-		Method:           "GET",
+		Method:           http.MethodGet,
 		URL:              testURL,
 		Proto:            "HTTP/1.1",
 		ProtoMajor:       1,
@@ -78,23 +80,22 @@ func TestShouldBlockRequestWithPOST(t *testing.T) {
 	// We'll configure our proxy to block User-Agent, and then
 	// set User-Agent in our request, to ensure that we are only
 	// blocking GET requests, not POST
-	postMethod := "POST"
 	request := http.Request{
-		Method: postMethod,
+		Method: http.MethodPost,
 		Header: make(http.Header, 0),
 	}
-	request.Header.Set("User-Agent", "whatever")
+	request.Header.Set(userAgentHeaderName, "whatever")
 	config := Configuration{
 		Server: "not required for test",
 		Rules: Deny{
 			// Use a header that should result in request being blocked, since http.get includes
 			// User-Agent by default.
-			Headers:   []string{"User-Agent"},
+			Headers:   []string{userAgentHeaderName},
 			URLParams: []string{},
 		},
 	}
 	if shouldBlockRequest(&request, &config) != false {
-		t.Fatalf("We should not block a request with method %v", postMethod)
+		t.Fatalf("We should not block a request with method %v", http.MethodPost)
 	}
 }
 
@@ -102,23 +103,22 @@ func TestShouldBlockRequestWithGET(t *testing.T) {
 	// We'll configure our proxy to block User-Agent, and then
 	// set User-Agent in our request, to ensure that we are only
 	// blocking GET requests, not POST
-	getMethod := "GET"
 	request := http.Request{
-		Method: getMethod,
+		Method: http.MethodGet,
 		Header: make(http.Header, 0),
 	}
-	request.Header.Set("User-Agent", "whatever")
+	request.Header.Set(userAgentHeaderName, "whatever")
 	config := Configuration{
 		Server: "not required for test",
 		Rules: Deny{
 			// Use a header that should result in request being blocked, since http.get includes
 			// User-Agent by default.
-			Headers:   []string{"User-Agent"},
+			Headers:   []string{userAgentHeaderName},
 			URLParams: []string{},
 		},
 	}
 	if shouldBlockRequest(&request, &config) != true {
-		t.Fatalf("We should not block a request with method %v", getMethod)
+		t.Fatalf("We should not block a request with method %v", http.MethodGet)
 	}
 }
 
@@ -135,7 +135,7 @@ func TestReverseProxyBlockingByHeader(t *testing.T) {
 		Rules: Deny{
 			// Use a header that should result in request being blocked, since http.get includes
 			// User-Agent by default.
-			Headers:   []string{"User-Agent"},
+			Headers:   []string{userAgentHeaderName},
 			URLParams: []string{},
 		},
 	}
@@ -190,8 +190,8 @@ func TestReverseProxyBlockingByParam(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if response.StatusCode != 403 {
-		t.Fatalf("Expecting a 403 forbidden response, got %v", response)
+	if response.StatusCode != http.StatusForbidden {
+		t.Fatalf("Expecting a %d response, got %v", http.StatusForbidden, response)
 	}
 
 }
@@ -227,7 +227,7 @@ func TestReverseProxyPassthroughRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		t.Fatalf("Expecting a 200 OK response, got %v", response)
 	}
 }

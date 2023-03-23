@@ -16,6 +16,10 @@ import (
 	"unicode/utf8"
 )
 
+const defaultConfigFileName = "config.json"
+const defaultPort = ":9090"
+const protocol = "HTTP/1.1"
+
 // Configuration is a struct to handle our configuration file format
 // server is the backend server our proxy sits in front of
 // Rules allow us to block request based on query param or header.
@@ -29,7 +33,7 @@ type Deny struct {
 }
 
 func main() {
-	configFileName := "config.json"
+	configFileName := defaultConfigFileName
 	if len(os.Args) > 1 {
 		configFileName = os.Args[1]
 	}
@@ -45,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 	http.HandleFunc("/", ProxyRequestHandler(proxy))
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	log.Fatal(http.ListenAndServe(defaultPort, nil))
 }
 
 func parseConfigFile(configBytes []byte) *Configuration {
@@ -66,7 +70,7 @@ type customProxyTransport struct {
 // Based on request and configuration, returns a bool that indicates the request should be
 // blocked or not.
 func shouldBlockRequest(request *http.Request, config *Configuration) bool {
-	if request.Method != "GET" {
+	if request.Method != http.MethodGet {
 		return false
 	}
 	for headerIndex := 0; headerIndex < len(config.Rules.Headers); headerIndex++ {
@@ -126,9 +130,9 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 	var err error
 	if shouldBlockRequest(request, t.config) {
 		response = &http.Response{
-			Status:        "403 Forbidden",
-			StatusCode:    403,
-			Proto:         "HTTP/1.1",
+			Status:        fmt.Sprintf("%v %v", http.StatusForbidden, http.StatusText(http.StatusForbidden)),
+			StatusCode:    http.StatusForbidden,
+			Proto:         protocol,
 			ProtoMajor:    1,
 			ProtoMinor:    1,
 			Body:          io.NopCloser(bytes.NewBufferString("")),
@@ -149,7 +153,7 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 	return response, err
 }
 
-// Creates a reverse proxy mapped to a targetHost
+// NewProxy Creates a reverse proxy mapped to a targetHost
 func NewProxy(config *Configuration) (*httputil.ReverseProxy, error) {
 	url, err := url.Parse(config.Server)
 	if err != nil {
