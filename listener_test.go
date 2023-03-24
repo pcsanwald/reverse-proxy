@@ -16,28 +16,16 @@ func TestRequestAsLoggableString(t *testing.T) {
 	// TODO: this can be much more exhaustive
 	testURL, _ := url.Parse("/foo")
 	request := http.Request{
-		Method:           http.MethodGet,
-		URL:              testURL,
-		Proto:            "HTTP/1.1",
-		ProtoMajor:       1,
-		ProtoMinor:       1,
-		Header:           make(http.Header, 0),
-		Body:             nil,
-		GetBody:          nil,
-		ContentLength:    0,
-		TransferEncoding: nil,
-		Close:            false,
-		Host:             "localhost:9090",
-		Form:             nil,
-		PostForm:         nil,
-		MultipartForm:    nil,
-		Trailer:          nil,
-		RemoteAddr:       "",
-		RequestURI:       "",
-		TLS:              nil,
-		Response:         nil,
+		Method:        http.MethodGet,
+		URL:           testURL,
+		ProtoMajor:    2,
+		ProtoMinor:    0,
+		Header:        make(http.Header, 0),
+		ContentLength: 0,
+		Close:         false,
+		Host:          "localhost:9090",
 	}
-	expectedOutputRegex := "GET /foo HTTP/1.1"
+	expectedOutputRegex := "GET /foo HTTP/2.0"
 	validLoggableString := regexp.MustCompile(expectedOutputRegex)
 	logString := RequestAsLoggableString(&request)
 	if !validLoggableString.MatchString(logString) {
