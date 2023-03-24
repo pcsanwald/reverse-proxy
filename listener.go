@@ -16,6 +16,10 @@ import (
 	"unicode/utf8"
 )
 
+const defaultConfigFileName = "config.json"
+const defaultPort = ":9090"
+const protocol = "HTTP/1.1"
+
 // Configuration is a struct to handle our configuration file format
 // server is the backend server our proxy sits in front of
 // Rules allow us to block request based on query param or header.
@@ -29,7 +33,7 @@ type Deny struct {
 }
 
 func main() {
-	configFileName := "config.json"
+	configFileName := defaultConfigFileName
 	if len(os.Args) > 1 {
 		configFileName = os.Args[1]
 	}
@@ -37,7 +41,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to load configuration file, %v. Please specify as an argument to the program.", err)
 	}
-	reverseProxyConfig := parseConfigFile(body)
+	reverseProxyConfig, err := parseConfigFile(body)
+	if err != nil {
+		log.Fatalf("Error parsing configuration file %s, error: %v", configFileName, err)
+	}
 	fmt.Println("started reverse proxy...")
 
 	proxy, err := NewProxy(reverseProxyConfig)
@@ -45,16 +52,16 @@ func main() {
 		log.Fatal(err)
 	}
 	http.HandleFunc("/", ProxyRequestHandler(proxy))
-	log.Fatal(http.ListenAndServe(":9090", nil))
+	log.Fatal(http.ListenAndServe(defaultPort, nil))
 }
 
-func parseConfigFile(configBytes []byte) *Configuration {
+func parseConfigFile(configBytes []byte) (*Configuration, error) {
 	reverseProxyConfig := Configuration{}
 	err := json.Unmarshal(configBytes, &reverseProxyConfig)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return &reverseProxyConfig
+	return &reverseProxyConfig, nil
 }
 
 // Implement RoundTrip function so that we can log the response to the request
@@ -66,7 +73,7 @@ type customProxyTransport struct {
 // Based on request and configuration, returns a bool that indicates the request should be
 // blocked or not.
 func shouldBlockRequest(request *http.Request, config *Configuration) bool {
-	if request.Method != "GET" {
+	if request.Method != http.MethodGet {
 		return false
 	}
 	for headerIndex := 0; headerIndex < len(config.Rules.Headers); headerIndex++ {
@@ -126,11 +133,11 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 	var err error
 	if shouldBlockRequest(request, t.config) {
 		response = &http.Response{
-			Status:        "403 Forbidden",
-			StatusCode:    403,
-			Proto:         "HTTP/1.1",
-			ProtoMajor:    1,
-			ProtoMinor:    1,
+			Status:        fmt.Sprintf("%v %v", http.StatusForbidden, http.StatusText(http.StatusForbidden)),
+			StatusCode:    http.StatusForbidden,
+			Proto:         request.Proto,
+			ProtoMajor:    request.ProtoMajor,
+			ProtoMinor:    request.ProtoMinor,
 			Body:          io.NopCloser(bytes.NewBufferString("")),
 			ContentLength: 0,
 			Request:       request,
@@ -141,6 +148,9 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 		request.URL.RawQuery = maskedValues.Encode()
 		log.Printf("Query String after masking values: %v", request.URL.RawQuery)
 		response, err = http.DefaultTransport.RoundTrip(request)
+		if err != nil {
+			log.Printf("Error in RoundTrip: %v", err)
+		}
 	}
 
 	// 3. The proxy should log all incoming requests, including headers and body, and response
@@ -149,7 +159,7 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 	return response, err
 }
 
-// Creates a reverse proxy mapped to a targetHost
+// NewProxy Creates a reverse proxy mapped to a targetHost
 func NewProxy(config *Configuration) (*httputil.ReverseProxy, error) {
 	url, err := url.Parse(config.Server)
 	if err != nil {
