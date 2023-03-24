@@ -148,6 +148,9 @@ func (t *customProxyTransport) RoundTrip(request *http.Request) (*http.Response,
 		request.URL.RawQuery = maskedValues.Encode()
 		log.Printf("Query String after masking values: %v", request.URL.RawQuery)
 		response, err = http.DefaultTransport.RoundTrip(request)
+		if err != nil {
+			log.Printf("Error in RoundTrip: %v", err)
+		}
 	}
 
 	// 3. The proxy should log all incoming requests, including headers and body, and response
