@@ -41,7 +41,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to load configuration file, %v. Please specify as an argument to the program.", err)
 	}
-	reverseProxyConfig := parseConfigFile(body)
+	reverseProxyConfig, err := parseConfigFile(body)
+	if err != nil {
+		log.Fatalf("Error parsing configuration file %s, error: %v", configFileName, err)
+	}
 	fmt.Println("started reverse proxy...")
 
 	proxy, err := NewProxy(reverseProxyConfig)
@@ -52,13 +55,13 @@ func main() {
 	log.Fatal(http.ListenAndServe(defaultPort, nil))
 }
 
-func parseConfigFile(configBytes []byte) *Configuration {
+func parseConfigFile(configBytes []byte) (*Configuration, error) {
 	reverseProxyConfig := Configuration{}
 	err := json.Unmarshal(configBytes, &reverseProxyConfig)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return &reverseProxyConfig
+	return &reverseProxyConfig, nil
 }
 
 // Implement RoundTrip function so that we can log the response to the request
